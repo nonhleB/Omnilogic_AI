@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}ClinicalWriter · OmniLogic Healthcare{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="module-badge">02 · Prompt Engineering</div>
+  <h1>ClinicalWriter</h1>
+  <p>Generate healthcare content with professionally engineered prompts — calibrated for patients, clinicians, and the public.</p>
+</div>
+
+<div class="generator-layout">
+  <!-- LEFT: Controls -->
+  <div class="gen-panel">
+    <div class="gen-section">
+      <label class="gen-label">Content Type</label>
+      <div class="content-type-grid" id="contentTypeGrid">
+        {% for key, ct in content_types.items() %}
+        <button class="ct-btn {% if loop.first %}active{% endif %}"
+                data-key="{{ key }}"
+                data-templates="{{ ct.templates | tojson | e }}"
+                onclick="selectContentType(this)">
+          <span class="ct-icon">{{ ct.icon }}</span>
+          <span class="ct-name">{{ ct.name }}</span>
+          <span class="ct-desc">{{ ct.description }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="gen-section">
+      <label class="gen-label">Template</label>
+      <select id="templateSelect" class="gen-select" onchange="updateFields()"></select>
+    </div>
+
+    <div id="dynamicFields" class="gen-section"></div>
+
+    <button class="btn btn-primary btn-full" id="generateBtn" onclick="generate()">
+      Generate Content
+    </button>
+  </div>
+
+  <!-- RIGHT: Output -->
+  <div class="gen-output-panel">
+    <div class="output-header">
+      <span id="outputMeta" class="output-meta">Output will appear here</span>
+      <div class="output-actions">
+        <button class="action-btn" onclick="copyOutput()" id="copyBtn" style="display:none">Copy</button>
+        <button class="action-btn" onclick="downloadOutput()" id="dlBtn" style="display:none">Download .md</button>
+      </div>
+    </div>
+    <div id="outputArea" class="output-area">
+      <div class="output-placeholder">
+        <span class="placeholder-icon">✍️</span>
+        <p>Select a content type and template,<br>fill in the details, then click Generate.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTemplates = [];
+let currentTypeKey = "";
+let generatedContent = "";
+
+// Init on load
+document.addEventListener("DOMContentLoaded", () => {
+  const first = document.querySelector(".ct-btn");
+  if (first) selectContentType(first);
+});
+
+function selectContentType(btn) {
+  document.querySelectorAll(".ct-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentTypeKey = btn.dataset.key;
+  currentTemplates = JSON.parse(btn.dataset.templates);
+  const sel = document.getElementById("templateSelect");
+  sel.innerHTML = currentTemplates.map((t, i) => `<option value="${i}">${t.title}</option>`).join("");
+  updateFields();
+}
+
+function updateFields() {
+  const idx = parseInt(document.getElementById("templateSelect").value);
+  const tpl = currentTemplates[idx];
+  const container = document.getElementById("dynamicFields");
+  const fieldDefs = {
+    topic:       { label: "Topic / Subject", placeholder: "e.g. Type 2 Diabetes", type: "text" },
+    tone:        { label: "Tone", placeholder: "e.g. clear and empathetic", type: "text" },
+    audience:    { label: "Audience", placeholder: "e.g. patients and caregivers", type: "text" },
+    word_count:  { label: "Word Count", placeholder: "e.g. 600", type: "number" },
+    platform:    { label: "Platform", placeholder: "e.g. Facebook, LinkedIn", type: "text" },
+  };
+  container.innerHTML = tpl.fields.map(f => {
+    const d = fieldDefs[f] || { label: f, placeholder: "", type: "text" };
+    return `<div class="field-group">
+      <label class="gen-label">${d.label}</label>
+      <input class="gen-input" id="field_${f}" type="${d.type}" placeholder="${d.placeholder}" />
+    </div>`;
+  }).join("");
+}
+
+async function generate() {
+  const btn = document.getElementById("generateBtn");
+  const idx = parseInt(document.getElementById("templateSelect").value);
+  const tpl = currentTemplates[idx];
+  const params = {};
+  for (const f of tpl.fields) {
+    params[f] = document.getElementById(`field_${f}`)?.value || "";
+  }
+  if (!params.topic) { alert("Please enter a topic."); return; }
+
+  btn.disabled = true;
+  btn.textContent = "Generating…";
+  document.getElementById("outputArea").innerHTML = '<div class="gen-loading"><div class="spinner"></div><p>Writing content…</p></div>';
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content_type: currentTypeKey, template_index: idx, params })
+    });
+    const data = await res.json();
+    generatedContent = data.content;
+    document.getElementById("outputArea").innerHTML = `<div class="output-text">${markdownToHtml(data.content)}</div>`;
+    document.getElementById("outputMeta").textContent = `${data.content_type} · ${data.template} · ${data.word_count} words`;
+    document.getElementById("copyBtn").style.display = "inline-block";
+    document.getElementById("dlBtn").style.display = "inline-block";
+  } catch(e) {
+    document.getElementById("outputArea").innerHTML = '<p class="error-msg">Generation failed. Please try again.</p>';
+  }
+  btn.disabled = false;
+  btn.textContent = "Generate Content";
+}
+
+function copyOutput() {
+  navigator.clipboard.writeText(generatedContent);
+  const btn = document.getElementById("copyBtn");
+  btn.textContent = "Copied!";
+  setTimeout(() => btn.textContent = "Copy", 2000);
+}
+
+function downloadOutput() {
+  const blob = new Blob([generatedContent], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "clinicalwriter-output.md";
+  a.click();
+}
+
+function markdownToHtml(text) {
+  return text
+    .replace(/^# (.+)$/gm, "<h2>$1</h2>")
+    .replace(/^## (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^### (.+)$/gm, "<h4>$1</h4>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/^- (.+)$/gm, "<li>$1</li>")
+    .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
+    .replace(/\n\n/g, "</p><p>")
+    .replace(/\n/g, "<br>");
+}
+</script>
+{% endblock %}

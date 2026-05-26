@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}HealthChat · OmniLogic Healthcare{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="module-badge">01 · Conversational AI</div>
+  <h1>HealthChat</h1>
+  <p>A compassionate AI health assistant with full conversation memory. Ask about symptoms, conditions, or wellness. <em>Not a substitute for professional medical advice.</em></p>
+</div>
+
+<div class="chat-container">
+  <div class="chat-window" id="chatWindow">
+    <div class="chat-message assistant">
+      <div class="msg-avatar">⊕</div>
+      <div class="msg-bubble">
+        <p>Hello! I'm HealthChat, your AI health assistant. I can help you with general health information, symptom guidance, medication questions, and wellness tips.</p>
+        <p>What can I help you with today?</p>
+        <p class="msg-disclaimer">⚠️ I'm not a substitute for professional medical care. For emergencies call <strong>10177</strong> or <strong>112</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-suggestions">
+    <button class="suggestion-chip" onclick="sendSuggestion(this)">What are symptoms of hypertension?</button>
+    <button class="suggestion-chip" onclick="sendSuggestion(this)">How do I manage type 2 diabetes?</button>
+    <button class="suggestion-chip" onclick="sendSuggestion(this)">What vaccines do adults need?</button>
+    <button class="suggestion-chip" onclick="sendSuggestion(this)">Tips for better sleep</button>
+  </div>
+
+  <div class="chat-input-row">
+    <textarea id="userInput" placeholder="Type your health question…" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button id="sendBtn" onclick="sendMessage()">Send</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let messages = [];
+
+async function sendMessage(text) {
+  const input = document.getElementById("userInput");
+  const msg = text || input.value.trim();
+  if (!msg) return;
+  input.value = "";
+  autoResize(input);
+
+  appendMessage("user", msg);
+  messages.push({ role: "user", content: msg });
+
+  const btn = document.getElementById("sendBtn");
+  btn.disabled = true;
+  appendTyping();
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages })
+    });
+    const data = await res.json();
+    removeTyping();
+    appendMessage("assistant", data.reply);
+    messages.push({ role: "assistant", content: data.reply });
+  } catch (e) {
+    removeTyping();
+    appendMessage("assistant", "Sorry, something went wrong. Please try again.");
+  }
+  btn.disabled = false;
+}
+
+function appendMessage(role, text) {
+  const win = document.getElementById("chatWindow");
+  const div = document.createElement("div");
+  div.className = `chat-message ${role}`;
+  div.innerHTML = `
+    ${role === "assistant" ? '<div class="msg-avatar">⊕</div>' : ""}
+    <div class="msg-bubble">${markdownToHtml(text)}</div>
+  `;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function appendTyping() {
+  const win = document.getElementById("chatWindow");
+  const div = document.createElement("div");
+  div.className = "chat-message assistant typing-indicator-wrap";
+  div.id = "typingIndicator";
+  div.innerHTML = '<div class="msg-avatar">⊕</div><div class="msg-bubble"><span class="typing-dots"><span></span><span></span><span></span></span></div>';
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById("typingIndicator");
+  if (t) t.remove();
+}
+
+function sendSuggestion(btn) {
+  sendMessage(btn.textContent);
+}
+
+function handleKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
+function markdownToHtml(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/\n/g, "<br>");
+}
+</script>
+{% endblock %}

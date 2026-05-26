@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}PatientPulse · OmniLogic Healthcare{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="module-badge">03 · NLP Sentiment Analysis</div>
+  <h1>PatientPulse <span class="badge-sub">EchoMind</span></h1>
+  <p>Analyse patient feedback, reviews, or clinical notes. Returns overall sentiment, Plutchik 8-emotion scoring, clinical flags, and a narrative summary.</p>
+</div>
+
+<div class="sentiment-layout">
+  <!-- INPUT -->
+  <div class="sent-input-panel">
+    <div class="sent-samples">
+      <span class="sent-label">Try a sample:</span>
+      <button class="sample-btn" onclick="loadSample(0)">Positive review</button>
+      <button class="sample-btn" onclick="loadSample(1)">Complaint</button>
+      <button class="sample-btn" onclick="loadSample(2)">Mixed feedback</button>
+      <button class="sample-btn" onclick="loadSample(3)">Anxious patient</button>
+    </div>
+    <textarea id="sentInput" class="sent-textarea" placeholder="Paste patient feedback, a review, or clinical note here…" rows="7"></textarea>
+    <div class="sent-footer">
+      <span id="charCount" class="char-count">0 / 2000 characters</span>
+      <button class="btn btn-primary" id="analyseBtn" onclick="analyse()">Analyse</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="sentResults" class="sent-results hidden">
+    <div class="result-row">
+      <div class="result-card overall-card">
+        <div class="result-label">Overall Sentiment</div>
+        <div id="overallSentiment" class="overall-value">—</div>
+        <div id="sentScore" class="sent-score-bar-wrap">
+          <div class="score-track">
+            <div id="scoreBar" class="score-bar"></div>
+          </div>
+          <div class="score-labels"><span>Negative</span><span>Neutral</span><span>Positive</span></div>
+        </div>
+        <div id="sentIntensity" class="intensity-tag"></div>
+      </div>
+
+      <div class="result-card">
+        <div class="result-label">Clinical Flags</div>
+        <div id="clinicalFlags" class="flags-list"></div>
+      </div>
+    </div>
+
+    <div class="result-card emotions-card">
+      <div class="result-label">Plutchik 8-Emotion Breakdown</div>
+      <div id="emotionsGrid" class="emotions-grid"></div>
+    </div>
+
+    <div class="result-row">
+      <div class="result-card">
+        <div class="result-label">Key Themes</div>
+        <div id="keyThemes" class="themes-list"></div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Key Phrases</div>
+        <div id="keyPhrases" class="phrases-list"></div>
+      </div>
+    </div>
+
+    <div class="result-card summary-card">
+      <div class="result-label">Narrative Summary</div>
+      <p id="sentSummary" class="summary-text"></p>
+    </div>
+  </div>
+
+  <div id="sentPlaceholder" class="sent-placeholder">
+    <span class="placeholder-icon">🫀</span>
+    <p>Paste patient feedback above and click Analyse.</p>
+  </div>
+</div>
+
+<script>
+const SAMPLES = [
+  "The care I received at this hospital was absolutely outstanding. The nurses were attentive, the doctors explained everything clearly, and I felt genuinely cared for throughout my recovery. The facilities were clean and modern. I couldn't have asked for better treatment.",
+  "I waited over 3 hours past my appointment time with no explanation or apology. When I finally saw the doctor, the consultation lasted barely 5 minutes. I left feeling dismissed and unheard. The reception staff were rude and unhelpful. Deeply disappointed.",
+  "The medical treatment itself was excellent and I have full confidence in my doctor. However the administration side is a nightmare — booking appointments takes weeks, the phone line is constantly engaged, and the billing department sent me incorrect invoices twice.",
+  "I've been feeling really anxious about my upcoming procedure and I'm not sure what to expect. The doctor seems competent but hasn't explained much. I hope everything goes well. I'm trying to stay positive but it's difficult not to worry."
+];
+
+document.getElementById("sentInput").addEventListener("input", function() {
+  document.getElementById("charCount").textContent = `${this.value.length} / 2000 characters`;
+});
+
+function loadSample(i) {
+  document.getElementById("sentInput").value = SAMPLES[i];
+  document.getElementById("charCount").textContent = `${SAMPLES[i].length} / 2000 characters`;
+}
+
+async function analyse() {
+  const text = document.getElementById("sentInput").value.trim();
+  if (!text) { alert("Please enter some text to analyse."); return; }
+
+  const btn = document.getElementById("analyseBtn");
+  btn.disabled = true;
+  btn.textContent = "Analysing…";
+  document.getElementById("sentPlaceholder").classList.add("hidden");
+  document.getElementById("sentResults").classList.add("hidden");
+
+  try {
+    const res = await fetch("/api/sentiment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    const d = await res.json();
+    renderResults(d);
+  } catch(e) {
+    alert("Analysis failed. Please try again.");
+  }
+  btn.disabled = false;
+  btn.textContent = "Analyse";
+}
+
+function renderResults(d) {
+  // Overall
+  const el = document.getElementById("overallSentiment");
+  el.textContent = d.overall;
+  el.className = "overall-value sentiment-" + d.overall.toLowerCase().replace(" ", "-");
+
+  // Score bar
+  const pct = ((d.score + 1) / 2) * 100;
+  document.getElementById("scoreBar").style.width = pct + "%";
+  document.getElementById("scoreBar").style.background = d.score > 0.2 ? "var(--green)" : d.score < -0.2 ? "var(--red)" : "var(--amber)";
+
+  document.getElementById("sentIntensity").textContent = d.intensity + " Intensity";
+  document.getElementById("sentIntensity").className = "intensity-tag intensity-" + d.intensity.toLowerCase();
+
+  // Clinical flags
+  const flags = document.getElementById("clinicalFlags");
+  if (d.clinical_flags && d.clinical_flags.length) {
+    flags.innerHTML = d.clinical_flags.map(f => `<span class="flag-tag">${f}</span>`).join("");
+  } else {
+    flags.innerHTML = '<span class="no-flags">✓ No clinical flags detected</span>';
+  }
+
+  // Emotions
+  const EMOTION_ICONS = { joy:"😊", trust:"🤝", fear:"😨", surprise:"😲", sadness:"😢", disgust:"🤢", anger:"😠", anticipation:"🔮" };
+  const emotions = document.getElementById("emotionsGrid");
+  emotions.innerHTML = Object.entries(d.emotions).map(([name, val]) => `
+    <div class="emotion-item">
+      <div class="emotion-header"><span>${EMOTION_ICONS[name] || "•"} ${name}</span><span>${val}%</span></div>
+      <div class="emotion-bar-track"><div class="emotion-bar" style="width:${val}%"></div></div>
+    </div>
+  `).join("");
+
+  // Themes & phrases
+  document.getElementById("keyThemes").innerHTML = (d.themes || []).map(t => `<span class="theme-chip">${t}</span>`).join("");
+  document.getElementById("keyPhrases").innerHTML = (d.key_phrases || []).map(p => `<span class="phrase-chip">"${p}"</span>`).join("");
+
+  // Summary
+  document.getElementById("sentSummary").textContent = d.summary;
+
+  document.getElementById("sentResults").classList.remove("hidden");
+}
+</script>
+{% endblock %}

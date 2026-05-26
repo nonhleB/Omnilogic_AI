@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}OmniLogic Healthcare AI{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<nav class="nav">
+  <a href="/" class="nav-logo">
+    <span class="logo-icon">⊕</span>
+    <span>OmniLogic <em>Healthcare</em></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/chatbot" class="{% if request.path == '/chatbot' %}active{% endif %}">
+      <span class="nav-num">01</span> HealthChat
+    </a></li>
+    <li><a href="/generator" class="{% if request.path == '/generator' %}active{% endif %}">
+      <span class="nav-num">02</span> ClinicalWriter
+    </a></li>
+    <li><a href="/sentiment" class="{% if request.path == '/sentiment' %}active{% endif %}">
+      <span class="nav-num">03</span> PatientPulse
+    </a></li>
+    <li><a href="/healthpredict" class="{% if request.path == '/healthpredict' %}active{% endif %}">
+      <span class="nav-num">04</span> HealthPredict
+    </a></li>
+  </ul>
+  <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
+</nav>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <p>OmniLogic Healthcare AI &nbsp;·&nbsp; Week 4 Capstone &nbsp;·&nbsp; <a href="https://github.com/nonhleB" target="_blank">@nonhleB</a></p>
+  <p class="footer-disclaimer">For educational purposes only. Not medical advice. SA emergencies: 10177 / 112</p>
+</footer>
+
+<script src="/static/js/main.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

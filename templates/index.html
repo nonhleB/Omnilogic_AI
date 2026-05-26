@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}OmniLogic Healthcare AI — Four AI Modules{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">Week 4 Capstone · AI Solution Development</div>
+    <h1>Four AI modules.<br><span class="accent">One healthcare platform.</span></h1>
+    <p class="hero-sub">OmniLogic Healthcare brings LLMs, prompt engineering, NLP sentiment, supervised regression, classification, and unsupervised recommenders into one cohesive platform for the healthcare industry.</p>
+    <div class="hero-cta">
+      <a href="/chatbot" class="btn btn-primary">Try HealthChat</a>
+      <a href="/healthpredict" class="btn btn-ghost">Explore HealthPredict ML</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-n">4</span><span class="stat-l">AI Modules</span></div>
+      <div class="stat"><span class="stat-n">2</span><span class="stat-l">Supervised Algorithms</span></div>
+      <div class="stat"><span class="stat-n">1</span><span class="stat-l">Recommender Engine</span></div>
+      <div class="stat"><span class="stat-n">LLM</span><span class="stat-l">Conversational Layer</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="modules-section">
+  <div class="section-label">The Platform</div>
+  <h2>Built around the healthcare industry.</h2>
+  <p class="section-sub">Each module is a standalone, functional AI tool — together they form an end-to-end AI solution for healthcare providers, clinicians, and patients.</p>
+
+  <div class="modules-grid">
+    <a href="/chatbot" class="module-card">
+      <div class="module-num">01</div>
+      <div class="module-icon">💬</div>
+      <div class="module-tag">Conversational AI · LLM</div>
+      <h3>HealthChat</h3>
+      <p>A compassionate, multi-turn AI health assistant. Ask about symptoms, conditions, medications, or wellness — get clear, evidence-aware guidance with full conversation memory.</p>
+      <span class="module-link">Open module →</span>
+    </a>
+
+    <a href="/generator" class="module-card">
+      <div class="module-num">02</div>
+      <div class="module-icon">✍️</div>
+      <div class="module-tag">Content Generation · Prompt Engineering</div>
+      <h3>ClinicalWriter</h3>
+      <p>Generate patient education articles, discharge instructions, appointment reminders, awareness posts, and clinical blog content — calibrated to any audience and reading level.</p>
+      <span class="module-link">Open module →</span>
+    </a>
+
+    <a href="/sentiment" class="module-card">
+      <div class="module-num">03</div>
+      <div class="module-icon">🫀</div>
+      <div class="module-tag">NLP · Sentiment Analysis</div>
+      <h3>PatientPulse</h3>
+      <p>Analyse patient feedback, reviews, or clinical notes. Returns overall sentiment, Plutchik 8-emotion scoring, clinical flags, key themes, and a narrative summary.</p>
+      <span class="module-link">Open module →</span>
+    </a>
+
+    <a href="/healthpredict" class="module-card">
+      <div class="module-num">04</div>
+      <div class="module-icon">📊</div>
+      <div class="module-tag">ML · Supervised + Unsupervised</div>
+      <h3>HealthPredict</h3>
+      <p>Linear regression predicts patient readmission risk score. Logistic regression classifies high/low risk. A content-based cosine-similarity recommender suggests optimal care pathways.</p>
+      <span class="module-link">Open module →</span>
+    </a>
+  </div>
+</section>
+
+<section class="tech-section">
+  <div class="tech-grid">
+    <div class="tech-card">
+      <h4>Supervised Learning</h4>
+      <p>Linear regression predicts readmission risk from patient features. Logistic regression classifies pass / high-risk threshold.</p>
+    </div>
+    <div class="tech-card">
+      <h4>Unsupervised Learning</h4>
+      <p>Content-based cosine-similarity recommender matches patient diagnoses to optimal care pathways from a curated catalogue.</p>
+    </div>
+    <div class="tech-card">
+      <h4>Generative AI</h4>
+      <p>Claude claude-sonnet-4-20250514 via the Anthropic API powers HealthChat, ClinicalWriter, and PatientPulse with state-of-the-art LLM reasoning.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

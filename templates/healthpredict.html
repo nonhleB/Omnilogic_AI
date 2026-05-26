@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}HealthPredict · OmniLogic Healthcare{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="module-badge">04 · ML Solution</div>
+  <h1>HealthPredict</h1>
+  <p>Browser-run ML: linear regression predicts readmission risk score, logistic regression classifies risk level, and a content-based cosine-similarity recommender suggests care pathways.</p>
+</div>
+
+<div class="ml-layout">
+  <!-- INPUT FORM -->
+  <div class="ml-form-panel">
+    <h3 class="panel-title">Patient Features</h3>
+    <div class="ml-fields">
+      <div class="ml-field">
+        <label>Age (years)</label>
+        <input type="number" id="age" value="65" min="0" max="120" class="ml-input" />
+      </div>
+      <div class="ml-field">
+        <label>Comorbidities (count)</label>
+        <input type="number" id="comorbidities" value="3" min="0" max="20" class="ml-input" />
+      </div>
+      <div class="ml-field">
+        <label>Previous Admissions (last 12 months)</label>
+        <input type="number" id="prev_admissions" value="2" min="0" max="20" class="ml-input" />
+      </div>
+      <div class="ml-field">
+        <label>Length of Stay (days)</label>
+        <input type="number" id="los_days" value="5" min="0" max="365" class="ml-input" />
+      </div>
+      <div class="ml-field">
+        <label>Medication Count</label>
+        <input type="number" id="medication_count" value="4" min="0" max="50" class="ml-input" />
+      </div>
+      <div class="ml-field ml-field-full">
+        <label>Primary Diagnoses / Conditions <span class="field-hint">(used for care pathway recommendations)</span></label>
+        <input type="text" id="diagnoses" value="hypertension diabetes heart" placeholder="e.g. hypertension diabetes heart failure" class="ml-input" />
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" id="predictBtn" onclick="predict()">Run Prediction</button>
+
+    <div class="ml-explainer">
+      <h4>How it works</h4>
+      <ul>
+        <li><strong>Linear Regression</strong> — combines 5 patient features with literature-based weights to output a continuous readmission risk score (0–100).</li>
+        <li><strong>Logistic Regression</strong> — applies a sigmoid function to the score to produce a binary High/Low risk classification with probability.</li>
+        <li><strong>Cosine Similarity Recommender</strong> — matches your diagnosis text against a catalogue of 10 care pathways using term-vector cosine similarity.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="ml-results-panel">
+    <div id="mlPlaceholder" class="ml-placeholder">
+      <span class="placeholder-icon">📊</span>
+      <p>Enter patient features and click Run Prediction.</p>
+    </div>
+
+    <div id="mlResults" class="hidden">
+      <!-- Score -->
+      <div class="result-card score-result-card">
+        <div class="result-label">Linear Regression · Readmission Risk Score</div>
+        <div class="score-display">
+          <div id="scoreGauge" class="score-gauge">
+            <svg viewBox="0 0 200 120" class="gauge-svg">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--border)" stroke-width="14" stroke-linecap="round"/>
+              <path id="gaugeFill" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--green)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+              <text id="gaugeText" x="100" y="95" text-anchor="middle" class="gauge-text">—</text>
+              <text x="100" y="112" text-anchor="middle" class="gauge-sub">/ 100</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Classification -->
+      <div class="result-card">
+        <div class="result-label">Logistic Regression · Risk Classification</div>
+        <div id="riskClass" class="risk-class-display"></div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar-track">
+            <div id="probBar" class="prob-bar"></div>
+          </div>
+          <div id="probLabel" class="prob-label"></div>
+        </div>
+      </div>
+
+      <!-- Feature Weights -->
+      <div class="result-card">
+        <div class="result-label">Feature Contribution Breakdown</div>
+        <div id="featureBreakdown" class="feature-breakdown"></div>
+      </div>
+
+      <!-- Recommendations -->
+      <div class="result-card recommend-card">
+        <div class="result-label">Cosine Similarity Recommender · Suggested Care Pathways</div>
+        <div id="pathways" class="pathways-list"></div>
+      </div>
+
+      <!-- Model Info -->
+      <div class="model-info-strip" id="modelInfo"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function predict() {
+  const btn = document.getElementById("predictBtn");
+  btn.disabled = true;
+  btn.textContent = "Running…";
+
+  const payload = {
+    age: document.getElementById("age").value,
+    comorbidities: document.getElementById("comorbidities").value,
+    prev_admissions: document.getElementById("prev_admissions").value,
+    los_days: document.getElementById("los_days").value,
+    medication_count: document.getElementById("medication_count").value,
+    diagnoses: document.getElementById("diagnoses").value
+  };
+
+  try {
+    const res = await fetch("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    renderML(d, payload);
+  } catch(e) {
+    alert("Prediction failed. Please try again.");
+  }
+  btn.disabled = false;
+  btn.textContent = "Run Prediction";
+}
+
+function renderML(d, payload) {
+  document.getElementById("mlPlaceholder").classList.add("hidden");
+  document.getElementById("mlResults").classList.remove("hidden");
+
+  // Gauge
+  const score = d.risk_score;
+  const circumference = 251.2;
+  const half = circumference / 2;
+  const offset = half - (score / 100) * half;
+  const gaugeFill = document.getElementById("gaugeFill");
+  gaugeFill.style.strokeDashoffset = offset;
+  gaugeFill.style.stroke = score > 60 ? "var(--red)" : score > 35 ? "var(--amber)" : "var(--green)";
+  document.getElementById("gaugeText").textContent = score;
+
+  // Classification
+  const cls = d.classification;
+  const isHigh = cls.risk_class === "High Risk";
+  document.getElementById("riskClass").innerHTML = `
+    <span class="risk-badge ${isHigh ? 'risk-high' : 'risk-low'}">${cls.risk_class}</span>
+    <span class="confidence-label">Confidence: ${cls.confidence}%</span>
+  `;
+  document.getElementById("probBar").style.width = cls.probability + "%";
+  document.getElementById("probBar").style.background = isHigh ? "var(--red)" : "var(--green)";
+  document.getElementById("probLabel").textContent = `Probability of readmission: ${cls.probability}%`;
+
+  // Feature breakdown
+  const weights = { age: 0.18, comorbidities: 4.2, prev_admissions: 6.5, los_days: 1.8, medication_count: 1.1 };
+  const labels = { age: "Age", comorbidities: "Comorbidities", prev_admissions: "Prev. Admissions", los_days: "Length of Stay", medication_count: "Medications" };
+  const contributions = Object.entries(weights).map(([k, w]) => ({
+    name: labels[k], value: w * parseFloat(payload[k] || 0), feature: k
+  })).sort((a, b) => b.value - a.value);
+  const maxC = Math.max(...contributions.map(c => Math.abs(c.value)));
+  document.getElementById("featureBreakdown").innerHTML = contributions.map(c => `
+    <div class="feat-row">
+      <span class="feat-name">${c.name}</span>
+      <div class="feat-bar-track">
+        <div class="feat-bar" style="width:${(Math.abs(c.value)/maxC)*100}%"></div>
+      </div>
+      <span class="feat-val">+${c.value.toFixed(1)}</span>
+    </div>
+  `).join("");
+
+  // Pathways
+  document.getElementById("pathways").innerHTML = d.pathways.map((p, i) => `
+    <div class="pathway-card">
+      <div class="pathway-rank">#${i + 1}</div>
+      <div class="pathway-info">
+        <div class="pathway-name">${p.name}</div>
+        <div class="pathway-desc">${p.description}</div>
+        <div class="pathway-tags">${p.tags.map(t => `<span class="pathway-tag">${t}</span>`).join("")}</div>
+      </div>
+      <div class="similarity-score">
+        <div class="sim-val">${p.similarity}%</div>
+        <div class="sim-label">match</div>
+      </div>
+    </div>
+  `).join("");
+
+  // Model info
+  document.getElementById("modelInfo").innerHTML = Object.entries(d.model_info).map(([k, v]) =>
+    `<span class="model-tag"><strong>${k}:</strong> ${v}</span>`
+  ).join("");
+}
+</script>
+{% endblock %}
